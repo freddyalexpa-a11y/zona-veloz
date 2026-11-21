@@ -1,0 +1,17 @@
+{
+  "name": "Diario Zona Veloz",
+  "short_name": "Zona Veloz",
+  "description": "Tu diario personal gamificado estilo retro",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#071b5c",
+  "theme_color": "#1d4ed8",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1828/1828884.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

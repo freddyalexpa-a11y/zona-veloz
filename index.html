@@ -1,0 +1,116 @@
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1d4ed8" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Zona Veloz" />
+  <title>Diario Zona Veloz</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="sky-layer"></div>
+  <div class="hill-back"></div>
+  <div class="hill-front"></div>
+  <div class="ground-checker"></div>
+
+  <header class="top-hud">
+    <div class="brand-row">
+      <img src="sonic.gif" alt="Sonic corriendo" class="sonic-hud-gif" />
+      <h1>DIARIO ZONA VELOZ</h1>
+    </div>
+
+    <div class="stats-row">
+      <div class="pill">🪙 <span id="ringsCount">0</span> anillos</div>
+      <div class="pill">🏆 Nivel <span id="levelNum">1</span>: <span id="levelName">Novato</span></div>
+      <div class="pill">🔥 Racha: <span id="streakCount">0</span> días</div>
+    </div>
+
+    <div class="xp-track">
+      <div class="xp-fill" id="xpFill"></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="editor-card" aria-label="Nueva entrada del diario">
+      <div class="prompt-bar">
+        <span>💡 ¿De qué estás orgulloso hoy?</span>
+        <button type="button" class="mini-btn" id="randomPromptBtn">Cambiar</button>
+      </div>
+
+      <input
+        type="text"
+        id="entryTitle"
+        class="input-field"
+        placeholder="Título de hoy"
+        maxlength="90"
+      />
+
+      <textarea
+        id="entryBody"
+        class="textarea-field"
+        rows="5"
+        placeholder="¿Cómo fue tu día? Escribe aquí..."
+      ></textarea>
+
+      <input
+        type="text"
+        id="entryTags"
+        class="input-field"
+        placeholder="Etiquetas: #trabajo #juegos"
+      />
+
+      <div class="mood-row" id="moodPicker" role="group" aria-label="Estado de ánimo">
+        <button type="button" class="mood-btn active" data-mood="😄" title="Feliz">😄</button>
+        <button type="button" class="mood-btn" data-mood="😎" title="Genial">😎</button>
+        <button type="button" class="mood-btn" data-mood="🙂" title="Tranquilo">🙂</button>
+        <button type="button" class="mood-btn" data-mood="🥶" title="Cansado">🥶</button>
+        <button type="button" class="mood-btn" data-mood="😮" title="Sorprendido">😮</button>
+        <button type="button" class="mood-btn" data-mood="😡" title="Molesto">😡</button>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-save" id="saveBtn">
+          GUARDAR (+1 ANILLO)
+        </button>
+        <button type="button" class="btn btn-idea" id="ideaBtn">
+          OTRA IDEA
+        </button>
+        <button type="button" class="btn btn-photo" id="photoBtn">
+          📷 FOTO
+        </button>
+        <input type="file" id="photoInput" accept="image/*" hidden />
+      </div>
+
+      <div class="photo-preview-wrap" id="photoPreviewWrap" hidden>
+        <img id="photoPreview" alt="Vista previa de la foto" />
+        <button type="button" class="remove-photo-btn" id="removePhotoBtn">✕ Quitar foto</button>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <div class="filter-tabs">
+        <button type="button" class="tab-btn active" data-filter="all">📚 TODAS</button>
+        <button type="button" class="tab-btn" data-filter="favorites">⭐ FAVORITAS</button>
+        <button type="button" class="tab-btn" data-filter="mood">🎭 ÁNIMO</button>
+        <button type="button" class="tab-btn" data-filter="lock">🔒 CONTRASEÑA</button>
+      </div>
+
+      <div class="search-box">
+        <span>🔍</span>
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Buscar o filtrar por etiqueta..."
+        />
+      </div>
+    </section>
+
+    <section id="entriesList" class="entries-list"></section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
