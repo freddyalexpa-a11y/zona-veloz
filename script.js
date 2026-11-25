@@ -28,13 +28,31 @@ const IDEAS = [
 let state = loadState();
 let selectedMood = "😄";
 let currentPhotoData = "";
+let currentAudioData = "";
 let activeFilter = "all";
+
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
 
 const ringsCountEl = document.getElementById("ringsCount");
 const levelNumEl = document.getElementById("levelNum");
 const levelNameEl = document.getElementById("levelName");
 const streakCountEl = document.getElementById("streakCount");
 const xpFillEl = document.getElementById("xpFill");
+
+const avatarInput = document.getElementById("avatarInput");
+const avatarImg = document.getElementById("avatarImg");
+const avatarPlaceholder = document.getElementById("avatarPlaceholder");
+
+const notifBellBtn = document.getElementById("notifBellBtn");
+const notifPanel = document.getElementById("notifPanel");
+const reminderTimeInput = document.getElementById("reminderTimeInput");
+const enableNotifBtn = document.getElementById("enableNotifBtn");
+const notifStatusText = document.getElementById("notifStatusText");
+
+const streakWarningBanner = document.getElementById("streakWarningBanner");
+const warningStreakDays = document.getElementById("warningStreakDays");
 
 const promptBarText = document.querySelector(".prompt-bar span");
 const randomPromptBtn = document.getElementById("randomPromptBtn");
@@ -51,13 +69,30 @@ const photoPreviewWrap = document.getElementById("photoPreviewWrap");
 const photoPreview = document.getElementById("photoPreview");
 const removePhotoBtn = document.getElementById("removePhotoBtn");
 
+const audioBtn = document.getElementById("audioBtn");
+const audioPreviewWrap = document.getElementById("audioPreviewWrap");
+const audioPreview = document.getElementById("audioPreview");
+const removeAudioBtn = document.getElementById("removeAudioBtn");
+
 const searchInput = document.getElementById("searchInput");
 const entriesList = document.getElementById("entriesList");
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        rings: parsed.rings || 0,
+        streak: parsed.streak || 0,
+        lastEntryDate: parsed.lastEntryDate || null,
+        avatarData: parsed.avatarData || "",
+        reminderTime: parsed.reminderTime || "20:00",
+        reminderEnabled: Boolean(parsed.reminderEnabled),
+        lastNotifiedDate: parsed.lastNotifiedDate || null,
+        entries: Array.isArray(parsed.entries) ? parsed.entries : []
+      };
+    }
   } catch (err) {
     console.error("Error cargando datos:", err);
   }
@@ -65,6 +100,10 @@ function loadState() {
     rings: 0,
     streak: 0,
     lastEntryDate: null,
+    avatarData: "",
+    reminderTime: "20:00",
+    reminderEnabled: false,
+    lastNotifiedDate: null,
     entries: []
   };
 }
@@ -75,7 +114,75 @@ function saveState() {
 
 function getTodayKey() {
   const now = new Date();
-  return now.toISOString().slice(0, 10);
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isStreakAtRisk() {
+  return state.streak > 0 && state.lastEntryDate !== getTodayKey();
+}
+
+function updateStreakWarning() {
+  if (isStreakAtRisk()) {
+    warningStreakDays.textContent = state.streak;
+    streakWarningBanner.hidden = false;
+  } else {
+    streakWarningBanner.hidden = true;
+  }
+}
+
+function updateAvatarUi() {
+  if (state.avatarData) {
+    avatarImg.src = state.avatarData;
+    avatarImg.hidden = false;
+    if (avatarPlaceholder) avatarPlaceholder.hidden = true;
+  } else {
+    avatarImg.hidden = true;
+    if (avatarPlaceholder) avatarPlaceholder.hidden = false;
+  }
+}
+
+function updateReminderUi() {
+  reminderTimeInput.value = state.reminderTime || "20:00";
+  if (state.reminderEnabled && "Notification" in window && Notification.permission === "granted") {
+    notifStatusText.textContent = `Activo (${state.reminderTime})`;
+  } else if (state.reminderEnabled) {
+    notifStatusText.textContent = "Permiso pendiente";
+  } else {
+    notifStatusText.textContent = "Desactivado";
+  }
+}
+
+function sendStreakNotification(bodyText) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  new Notification("🔥 Diario Zona Veloz", {
+    body: bodyText
+  });
+}
+
+function checkScheduledReminder() {
+  if (!state.reminderEnabled) return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+  const today = getTodayKey();
+  if (state.lastEntryDate === today || state.lastNotifiedDate === today) return;
+
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const currentTime = `${hh}:${mm}`;
+
+  if (currentTime >= state.reminderTime) {
+    const msg = state.streak > 0
+      ? `¡Tu racha de ${state.streak} días está en peligro! Escribe hoy para no perderla.`
+      : "¡Hoy es un buen día para sumar un anillo en tu diario!";
+    sendStreakNotification(msg);
+    state.lastNotifiedDate = today;
+    saveState();
+    updateReminderUi();
+  }
 }
 
 function updateHud() {
@@ -93,6 +200,8 @@ function updateHud() {
   levelNumEl.textContent = level;
   levelNameEl.textContent = rank;
   xpFillEl.style.width = `${progressInLevel}%`;
+
+  updateStreakWarning();
 }
 
 function parseTags(rawTags) {
@@ -140,13 +249,20 @@ function renderEntries() {
         .map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`)
         .join("");
 
+      const canShowMedia = !entry.locked || entry.unlockedTemp;
+
       const bodyText = entry.locked && !entry.unlockedTemp
         ? "🔒 Entrada protegida con contraseña. Pulsa 'Desbloquear' para leerla."
         : escapeHtml(entry.body);
 
       const photoHtml =
-        entry.photo && (!entry.locked || entry.unlockedTemp)
+        entry.photo && canShowMedia
           ? `<img src="${entry.photo}" alt="Foto de entrada" class="entry-photo" />`
+          : "";
+
+      const audioHtml =
+        entry.audio && canShowMedia
+          ? `<audio src="${entry.audio}" controls class="entry-audio"></audio>`
           : "";
 
       return `
@@ -158,6 +274,7 @@ function renderEntries() {
           <div class="entry-meta">${escapeHtml(entry.dateLabel)}</div>
           <p class="entry-body">${bodyText}</p>
           ${photoHtml}
+          ${audioHtml}
           ${tagsHtml ? `<div class="entry-tags">${tagsHtml}</div>` : ""}
           <div class="entry-actions">
             <button type="button" class="small-action" data-action="fav">
@@ -190,12 +307,63 @@ function updateStreakOnSave() {
   state.lastEntryDate = today;
 }
 
+avatarInput.addEventListener("change", () => {
+  const file = avatarInput.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.avatarData = String(reader.result || "");
+    updateAvatarUi();
+    saveState();
+  };
+  reader.readAsDataURL(file);
+});
+
+notifBellBtn.addEventListener("click", () => {
+  const nextHidden = !notifPanel.hidden;
+  notifPanel.hidden = nextHidden;
+  notifBellBtn.setAttribute("aria-expanded", String(!nextHidden));
+});
+
+enableNotifBtn.addEventListener("click", async () => {
+  state.reminderTime = reminderTimeInput.value || "20:00";
+
+  if (!("Notification" in window)) {
+    notifStatusText.textContent = "No compatible aquí";
+    state.reminderEnabled = true;
+    saveState();
+    return;
+  }
+
+  let permission = Notification.permission;
+  if (permission === "default") {
+    permission = await Notification.requestPermission();
+  }
+
+  if (permission === "granted") {
+    state.reminderEnabled = true;
+    saveState();
+    updateReminderUi();
+    sendStreakNotification(`Recordatorio configurado a las ${state.reminderTime}.`);
+  } else {
+    state.reminderEnabled = false;
+    saveState();
+    notifStatusText.textContent = "Permiso bloqueado";
+  }
+});
+
 saveBtn.addEventListener("click", () => {
+  if (isRecording) {
+    alert("Detén la grabación de audio antes de guardar.");
+    return;
+  }
+
   const title = titleInput.value.trim();
   const body = bodyInput.value.trim();
 
-  if (!title && !body) {
-    alert("Escribe un título o algo sobre tu día antes de guardar.");
+  if (!title && !body && !currentPhotoData && !currentAudioData) {
+    alert("Escribe algo, agrega una foto o graba un audio antes de guardar.");
     return;
   }
 
@@ -206,6 +374,7 @@ saveBtn.addEventListener("click", () => {
     tags: parseTags(tagsInput.value),
     mood: selectedMood,
     photo: currentPhotoData,
+    audio: currentAudioData,
     favorite: false,
     locked: false,
     unlockedTemp: false,
@@ -226,6 +395,10 @@ saveBtn.addEventListener("click", () => {
   currentPhotoData = "";
   photoInput.value = "";
   photoPreviewWrap.hidden = true;
+
+  currentAudioData = "";
+  audioPreview.src = "";
+  audioPreviewWrap.hidden = true;
 
   updateHud();
   renderEntries();
@@ -272,6 +445,55 @@ removePhotoBtn.addEventListener("click", () => {
   currentPhotoData = "";
   photoInput.value = "";
   photoPreviewWrap.hidden = true;
+});
+
+audioBtn.addEventListener("click", async () => {
+  if (!isRecording) {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      alert("Tu navegador no soporta grabación de audio aquí.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        const reader = new FileReader();
+        reader.onload = () => {
+          currentAudioData = String(reader.result || "");
+          audioPreview.src = currentAudioData;
+          audioPreviewWrap.hidden = false;
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      audioBtn.textContent = "⏹️ DETENER";
+      audioBtn.classList.add("recording");
+    } catch (err) {
+      alert("No se pudo acceder al micrófono. Revisa los permisos del navegador.");
+    }
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    audioBtn.textContent = "🎤 AUDIO";
+    audioBtn.classList.remove("recording");
+  }
+});
+
+removeAudioBtn.addEventListener("click", () => {
+  currentAudioData = "";
+  audioPreview.src = "";
+  audioPreviewWrap.hidden = true;
 });
 
 document.querySelectorAll(".tab-btn").forEach((tab) => {
@@ -325,5 +547,9 @@ entriesList.addEventListener("click", (e) => {
   }
 });
 
+updateAvatarUi();
+updateReminderUi();
 updateHud();
 renderEntries();
+checkScheduledReminder();
+setInterval(checkScheduledReminder, 60000);

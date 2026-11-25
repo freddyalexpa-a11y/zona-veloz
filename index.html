@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -20,6 +21,24 @@
     <div class="brand-row">
       <img src="sonic.gif" alt="Sonic corriendo" class="sonic-hud-gif" />
       <h1>DIARIO ZONA VELOZ</h1>
+
+      <label for="avatarInput" class="avatar-picker" title="Cambiar foto de perfil">
+        <span id="avatarPlaceholder" class="avatar-placeholder">👤</span>
+        <img id="avatarImg" alt="Foto de perfil" class="avatar-img" hidden />
+        <span class="avatar-badge">📷</span>
+      </label>
+      <input type="file" id="avatarInput" accept="image/*" hidden />
+
+      <button type="button" id="notifBellBtn" class="notif-bell-btn" title="Configurar recordatorio de racha" aria-expanded="false">
+        🔔
+      </button>
+    </div>
+
+    <div class="notif-panel" id="notifPanel" hidden>
+      <span>Recordatorio diario:</span>
+      <input type="time" id="reminderTimeInput" value="20:00" class="reminder-time-input" />
+      <button type="button" id="enableNotifBtn" class="mini-btn">Activar</button>
+      <span id="notifStatusText" class="notif-status"></span>
     </div>
 
     <div class="stats-row">
@@ -32,6 +51,10 @@
       <div class="xp-fill" id="xpFill"></div>
     </div>
   </header>
+
+  <div class="streak-warning-banner" id="streakWarningBanner" hidden>
+    🔥 ¡Tu racha de <span id="warningStreakDays">0</span> días está en peligro! Escribe hoy para no perderla 🔥
+  </div>
 
   <main class="container">
     <section class="editor-card" aria-label="Nueva entrada del diario">
@@ -81,12 +104,20 @@
         <button type="button" class="btn btn-photo" id="photoBtn">
           📷 FOTO
         </button>
+        <button type="button" class="btn btn-audio" id="audioBtn">
+          🎤 AUDIO
+        </button>
         <input type="file" id="photoInput" accept="image/*" hidden />
       </div>
 
       <div class="photo-preview-wrap" id="photoPreviewWrap" hidden>
         <img id="photoPreview" alt="Vista previa de la foto" />
         <button type="button" class="remove-photo-btn" id="removePhotoBtn">✕ Quitar foto</button>
+      </div>
+
+      <div class="audio-preview-wrap" id="audioPreviewWrap" hidden>
+        <audio id="audioPreview" controls></audio>
+        <button type="button" class="remove-photo-btn" id="removeAudioBtn">✕ Quitar audio</button>
       </div>
     </section>
 

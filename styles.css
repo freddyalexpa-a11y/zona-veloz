@@ -102,6 +102,7 @@ body {
   letter-spacing: 1px;
   font-weight: 800;
   text-shadow: 0 2px 0 #0c2461;
+  margin-right: 4px;
 }
 
 .sonic-hud-gif {
@@ -110,6 +111,114 @@ body {
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+/* Foto de perfil junto al título */
+.avatar-picker {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 27, 88, 0.85);
+  border: 2px solid #93c5fd;
+  margin-right: auto;
+}
+
+.avatar-placeholder {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-img[hidden],
+.avatar-placeholder[hidden] {
+  display: none;
+}
+
+.avatar-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  font-size: 0.65rem;
+  background: #0f172a;
+  border: 1px solid #93c5fd;
+  border-radius: 999px;
+  padding: 1px 3px;
+  line-height: 1;
+}
+
+/* Campana y panel de recordatorio */
+.notif-bell-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(254, 240, 138, 0.6);
+  background: rgba(10, 27, 88, 0.8);
+  color: #fef08a;
+  font-size: 1.15rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.notif-panel {
+  max-width: 780px;
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(10, 27, 88, 0.92);
+  border: 1px solid #60a5fa;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.notif-panel[hidden],
+.streak-warning-banner[hidden],
+.audio-preview-wrap[hidden] {
+  display: none;
+}
+
+.reminder-time-input {
+  background: var(--field-bg);
+  color: #fff;
+  border: 1px solid rgba(147, 197, 253, 0.5);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-family: inherit;
+}
+
+.notif-status {
+  color: #fde047;
+  font-weight: 600;
+}
+
+/* Banner de racha en peligro */
+.streak-warning-banner {
+  position: relative;
+  z-index: 2;
+  max-width: 740px;
+  margin: 14px auto 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(234, 88, 12, 0.95), rgba(245, 158, 11, 0.95));
+  border: 2px solid #fef08a;
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 
 .stats-row {
@@ -288,6 +397,16 @@ body {
   box-shadow: 0 4px 0 var(--accent-navy-dark);
 }
 
+.btn-audio {
+  background: linear-gradient(180deg, #9333ea, #6b21a8);
+  box-shadow: 0 4px 0 #4c1d95;
+}
+
+.btn-audio.recording {
+  background: linear-gradient(180deg, #ef4444, #b91c1c);
+  box-shadow: 0 4px 0 #7f1d1d;
+}
+
 .photo-preview-wrap {
   margin-top: 12px;
   display: flex;
@@ -314,6 +433,26 @@ body {
   border-radius: 8px;
   padding: 6px 10px;
   cursor: pointer;
+}
+
+.audio-preview-wrap {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.audio-preview-wrap audio {
+  max-width: 100%;
+  height: 38px;
+}
+
+.entry-audio {
+  width: 100%;
+  max-width: 420px;
+  height: 36px;
+  margin-bottom: 10px;
 }
 
 /* Filtros y búsqueda */
@@ -469,10 +608,15 @@ body {
   }
 
   .brand-row h1 {
-    font-size: 1.12rem;
+    font-size: 1.05rem;
   }
 
   .sonic-hud-gif {
+    width: 34px;
+    height: 34px;
+  }
+
+  .avatar-picker {
     width: 34px;
     height: 34px;
   }
@@ -498,7 +642,7 @@ body {
 
   .input-field,
   .textarea-field {
-    font-size: 16px; /* Evita que Safari en iPhone haga zoom automático al escribir */
+    font-size: 16px;
     padding: 10px 12px;
   }
 
@@ -519,7 +663,7 @@ body {
   }
 
   .btn-save {
-    grid-column: 1 / -1; /* Botón principal ocupa todo el ancho */
+    grid-column: 1 / -1;
     padding: 13px;
     font-size: 0.95rem;
   }
