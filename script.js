@@ -27,6 +27,7 @@ const IDEAS = [
 
 let state = loadState();
 let selectedMood = "😄";
+let moodFilter = "";
 let currentPhotoData = "";
 let currentAudioData = "";
 let activeFilter = "all";
@@ -338,6 +339,7 @@ function renderEntries() {
   const filtered = state.entries.filter((entry) => {
     if (activeFilter === "favorites" && !entry.favorite) return false;
     if (activeFilter === "lock" && !entry.locked) return false;
+    if (activeFilter === "mood" && moodFilter && entry.mood !== moodFilter) return false;
 
     if (!query) return true;
     const haystack = [
@@ -537,9 +539,16 @@ saveBtn.addEventListener("click", () => {
   if (audioPreview) audioPreview.src = "";
   if (audioPreviewWrap) audioPreviewWrap.hidden = true;
 
+  activeFilter = "all";
+  moodFilter = "";
+  document.querySelectorAll(".tab-btn").forEach((t) => {
+    t.classList.toggle("active", t.dataset.filter === "all");
+  });
+
   updateHud();
   renderEntries();
   renderMemoryCard();
+  entriesList?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 });
 
 ideaBtn.addEventListener("click", () => {
@@ -639,6 +648,14 @@ document.querySelectorAll(".tab-btn").forEach((tab) => {
     document.querySelectorAll(".tab-btn").forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
     activeFilter = tab.dataset.filter;
+
+    if (activeFilter === "mood") {
+      const picked = prompt("Escribe el emoji de ánimo a filtrar (ej. 😄, 😎, 🙂, 🥶, 😮, 😡) o déjalo vacío para ver todos:") || "";
+      moodFilter = picked.trim();
+    } else {
+      moodFilter = "";
+    }
+
     renderEntries();
   });
 });
