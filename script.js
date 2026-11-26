@@ -35,6 +35,9 @@ let mediaRecorder = null;
 let audioChunks = [];
 let isRecording = false;
 
+let memoryCandidates = [];
+let memoryIndex = 0;
+
 const ringsCountEl = document.getElementById("ringsCount");
 const levelNumEl = document.getElementById("levelNum");
 const levelNameEl = document.getElementById("levelName");
@@ -77,6 +80,12 @@ const removeAudioBtn = document.getElementById("removeAudioBtn");
 const searchInput = document.getElementById("searchInput");
 const entriesList = document.getElementById("entriesList");
 
+const memoryCard = document.getElementById("memoryCard");
+const memoryLabel = document.getElementById("memoryLabel");
+const memoryContent = document.getElementById("memoryContent");
+const nextMemoryBtn = document.getElementById("nextMemoryBtn");
+const hideMemoryBtn = document.getElementById("hideMemoryBtn");
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -109,7 +118,14 @@ function loadState() {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (err) {
+    console.error("Error guardando en localStorage:", err);
+    alert("No se pudo guardar (posiblemente por falta de espacio al incluir foto o audio). Intenta quitar la foto/audio o borrar entradas viejas.");
+    return false;
+  }
 }
 
 function getTodayKey() {
@@ -120,11 +136,31 @@ function getTodayKey() {
   return `${year}-${month}-${day}`;
 }
 
+function getEntryDateKey(entry) {
+  if (entry.dateKey) return entry.dateKey;
+  const d = new Date(Number(entry.id));
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getDateKeyDaysAgo(daysAgo) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function isStreakAtRisk() {
   return state.streak > 0 && state.lastEntryDate !== getTodayKey();
 }
 
 function updateStreakWarning() {
+  if (!streakWarningBanner || !warningStreakDays) return;
   if (isStreakAtRisk()) {
     warningStreakDays.textContent = state.streak;
     streakWarningBanner.hidden = false;
@@ -134,6 +170,7 @@ function updateStreakWarning() {
 }
 
 function updateAvatarUi() {
+  if (!avatarImg) return;
   if (state.avatarData) {
     avatarImg.src = state.avatarData;
     avatarImg.hidden = false;
@@ -145,6 +182,7 @@ function updateAvatarUi() {
 }
 
 function updateReminderUi() {
+  if (!reminderTimeInput || !notifStatusText) return;
   reminderTimeInput.value = state.reminderTime || "20:00";
   if (state.reminderEnabled && "Notification" in window && Notification.permission === "granted") {
     notifStatusText.textContent = `Activo (${state.reminderTime})`;
@@ -216,6 +254,82 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+function buildMemoryCandidates() {
+  const todayKey = getTodayKey();
+  const pastEntries = state.entries.filter((e) => {
+    const k = getEntryDateKey(e);
+    return k && k !== todayKey;
+  });
+
+  if (pastEntries.length === 0) return [];
+
+  const milestones = [
+    { days: 7, label: "🕰️ HACE 1 SEMANA" },
+    { days: 14, label: "🕰️ HACE 2 SEMANAS" },
+    { days: 30, label: "🕰️ HACE ~1 MES" },
+    { days: 90, label: "🕰️ HACE ~3 MESES" },
+    { days: 180, label: "🕰️ HACE ~6 MESES" },
+    { days: 365, label: "🕰️ HACE 1 AÑO" }
+  ];
+
+  const exactMatches = [];
+  for (const m of milestones) {
+    const targetKey = getDateKeyDaysAgo(m.days);
+    pastEntries.forEach((entry) => {
+      if (getEntryDateKey(entry) === targetKey) {
+        exactMatches.push({ entry, label: m.label });
+      }
+    });
+  }
+
+  if (exactMatches.length > 0) return exactMatches;
+
+  const shuffled = [...pastEntries].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 5).map((entry) => ({
+    entry,
+    label: "✨ RECUERDO DE DÍAS PASADOS"
+  }));
+}
+
+function renderMemoryCard() {
+  if (!memoryCard || !memoryContent || !memoryLabel) return;
+
+  memoryCandidates = buildMemoryCandidates();
+  if (memoryCandidates.length === 0) {
+    memoryCard.hidden = true;
+    return;
+  }
+
+  memoryIndex = memoryIndex % memoryCandidates.length;
+  const { entry, label } = memoryCandidates[memoryIndex];
+  const canShowMedia = !entry.locked || entry.unlockedTemp;
+
+  memoryLabel.textContent = label;
+  const bodyText = entry.locked && !entry.unlockedTemp
+    ? "🔒 Entrada protegida con contraseña. Búscala en la lista para desbloquearla."
+    : escapeHtml(entry.body || "");
+
+  const photoHtml =
+    entry.photo && canShowMedia
+      ? `<img src="${entry.photo}" alt="Foto del recuerdo" class="entry-photo" />`
+      : "";
+
+  const audioHtml =
+    entry.audio && canShowMedia
+      ? `<audio src="${entry.audio}" controls class="entry-audio"></audio>`
+      : "";
+
+  memoryContent.innerHTML = `
+    <div class="memory-sub">${escapeHtml(entry.dateLabel || "")}</div>
+    <h3 class="entry-title">${escapeHtml(entry.mood || "😄")} ${escapeHtml(entry.title || "Sin título")}</h3>
+    ${bodyText ? `<p class="entry-body">${bodyText}</p>` : ""}
+    ${photoHtml}
+    ${audioHtml}
+  `;
+
+  memoryCard.hidden = false;
 }
 
 function renderEntries() {
@@ -307,7 +421,7 @@ function updateStreakOnSave() {
   state.lastEntryDate = today;
 }
 
-avatarInput.addEventListener("change", () => {
+avatarInput?.addEventListener("change", () => {
   const file = avatarInput.files?.[0];
   if (!file) return;
 
@@ -320,17 +434,18 @@ avatarInput.addEventListener("change", () => {
   reader.readAsDataURL(file);
 });
 
-notifBellBtn.addEventListener("click", () => {
+notifBellBtn?.addEventListener("click", () => {
+  if (!notifPanel) return;
   const nextHidden = !notifPanel.hidden;
   notifPanel.hidden = nextHidden;
   notifBellBtn.setAttribute("aria-expanded", String(!nextHidden));
 });
 
-enableNotifBtn.addEventListener("click", async () => {
-  state.reminderTime = reminderTimeInput.value || "20:00";
+enableNotifBtn?.addEventListener("click", async () => {
+  state.reminderTime = reminderTimeInput?.value || "20:00";
 
   if (!("Notification" in window)) {
-    notifStatusText.textContent = "No compatible aquí";
+    if (notifStatusText) notifStatusText.textContent = "No compatible aquí";
     state.reminderEnabled = true;
     saveState();
     return;
@@ -349,8 +464,18 @@ enableNotifBtn.addEventListener("click", async () => {
   } else {
     state.reminderEnabled = false;
     saveState();
-    notifStatusText.textContent = "Permiso bloqueado";
+    if (notifStatusText) notifStatusText.textContent = "Permiso bloqueado";
   }
+});
+
+nextMemoryBtn?.addEventListener("click", () => {
+  if (memoryCandidates.length === 0) return;
+  memoryIndex = (memoryIndex + 1) % memoryCandidates.length;
+  renderMemoryCard();
+});
+
+hideMemoryBtn?.addEventListener("click", () => {
+  if (memoryCard) memoryCard.hidden = true;
 });
 
 saveBtn.addEventListener("click", () => {
@@ -369,6 +494,7 @@ saveBtn.addEventListener("click", () => {
 
   const newEntry = {
     id: Date.now().toString(),
+    dateKey: getTodayKey(),
     title: title || "Entrada del día",
     body,
     tags: parseTags(tagsInput.value),
@@ -384,10 +510,21 @@ saveBtn.addEventListener("click", () => {
     })
   };
 
+  const previousRings = state.rings;
+  const previousStreak = state.streak;
+  const previousLastDate = state.lastEntryDate;
+
   state.entries.unshift(newEntry);
   state.rings += 1;
   updateStreakOnSave();
-  saveState();
+
+  if (!saveState()) {
+    state.entries.shift();
+    state.rings = previousRings;
+    state.streak = previousStreak;
+    state.lastEntryDate = previousLastDate;
+    return;
+  }
 
   titleInput.value = "";
   bodyInput.value = "";
@@ -397,11 +534,12 @@ saveBtn.addEventListener("click", () => {
   photoPreviewWrap.hidden = true;
 
   currentAudioData = "";
-  audioPreview.src = "";
-  audioPreviewWrap.hidden = true;
+  if (audioPreview) audioPreview.src = "";
+  if (audioPreviewWrap) audioPreviewWrap.hidden = true;
 
   updateHud();
   renderEntries();
+  renderMemoryCard();
 });
 
 ideaBtn.addEventListener("click", () => {
@@ -447,7 +585,7 @@ removePhotoBtn.addEventListener("click", () => {
   photoPreviewWrap.hidden = true;
 });
 
-audioBtn.addEventListener("click", async () => {
+audioBtn?.addEventListener("click", async () => {
   if (!isRecording) {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       alert("Tu navegador no soporta grabación de audio aquí.");
@@ -469,8 +607,8 @@ audioBtn.addEventListener("click", async () => {
         const reader = new FileReader();
         reader.onload = () => {
           currentAudioData = String(reader.result || "");
-          audioPreview.src = currentAudioData;
-          audioPreviewWrap.hidden = false;
+          if (audioPreview) audioPreview.src = currentAudioData;
+          if (audioPreviewWrap) audioPreviewWrap.hidden = false;
         };
         reader.readAsDataURL(blob);
       };
@@ -490,10 +628,10 @@ audioBtn.addEventListener("click", async () => {
   }
 });
 
-removeAudioBtn.addEventListener("click", () => {
+removeAudioBtn?.addEventListener("click", () => {
   currentAudioData = "";
-  audioPreview.src = "";
-  audioPreviewWrap.hidden = true;
+  if (audioPreview) audioPreview.src = "";
+  if (audioPreviewWrap) audioPreviewWrap.hidden = true;
 });
 
 document.querySelectorAll(".tab-btn").forEach((tab) => {
@@ -525,6 +663,7 @@ entriesList.addEventListener("click", (e) => {
     state.entries = state.entries.filter((item) => item.id !== entry.id);
     saveState();
     renderEntries();
+    renderMemoryCard();
   } else if (action === "lock") {
     if (!entry.locked) {
       const pin = prompt("Crea una contraseña para esta entrada:");
@@ -544,6 +683,7 @@ entriesList.addEventListener("click", (e) => {
     }
     saveState();
     renderEntries();
+    renderMemoryCard();
   }
 });
 
@@ -551,5 +691,6 @@ updateAvatarUi();
 updateReminderUi();
 updateHud();
 renderEntries();
+renderMemoryCard();
 checkScheduledReminder();
 setInterval(checkScheduledReminder, 60000);
